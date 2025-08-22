@@ -1,0 +1,49 @@
+{% load static %}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Экзамены</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;max-width:960px;margin:0 auto;padding:1rem}
+    .card{border:1px solid #ddd;border-radius:8px;padding:12px;margin-bottom:12px}
+    .row{display:flex;gap:12px}
+    .meta{color:#555}
+    img{max-height:120px;border-radius:6px}
+    .pill{display:inline-block;padding:2px 6px;background:#f3f3f3;border-radius:999px;margin:2px 4px}
+  </style>
+</head>
+<body>
+  <h1>{{ full_name }} — {{ group }}</h1>
+  <h2>Опубликованные экзамены</h2>
+
+  {% if items %}
+    {% for e in items %}
+      <div class="card">
+        <h3>{{ e.title }}</h3>
+        <div class="meta">
+          Дата создания: {{ e.created_at }} · Дата проведения: {{ e.exam_date }} · Опубликовано: {{ e.is_public|yesno:"да,нет" }}
+        </div>
+        <div class="row">
+          {% if e.image %}
+            <div><img src="{{ e.image.url }}" alt="exam"></div>
+          {% endif %}
+          <div>
+            <div><b>Участники ({{ e.participants.count }})</b>:</div>
+            <div>
+              {% for u in e.participants.all %}
+                <span class="pill">{{ u.email|default:u.username }}</span>
+              {% empty %}
+                нет участников
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p>Опубликованных записей пока нет.</p>
+  {% endif %}
+</body>
+</html>

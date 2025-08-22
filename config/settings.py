@@ -52,6 +52,9 @@ INSTALLED_APPS = [
     "exam",
 ]
 
+EXAM_FULL_NAME = "Жетписов Ансат Нурланович"
+EXAM_GROUP = "231-323"
+
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
