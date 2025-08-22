@@ -1,11 +1,3 @@
-.env
-venv
-*.pyc
-media
-QueStudio.postman_collection.json
-
-
-
 # Logs
 logs
 *.log
