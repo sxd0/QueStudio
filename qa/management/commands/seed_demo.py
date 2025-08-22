@@ -60,7 +60,13 @@ class Command(BaseCommand):
         ]
         categories = []
         for name, slug in cat_data:
-            c, _ = Category.objects.get_or_create(name=name, slug=slug)
+            c, _ = Category.objects.get_or_create(
+                slug=slug,
+                defaults={"name": name},
+            )
+            if not c.name:
+                c.name = name
+                c.save(update_fields=["name"])
             categories.append(c)
         self.stdout.write(self.style.SUCCESS(f"Categories: {len(categories)}"))
 
@@ -72,7 +78,13 @@ class Command(BaseCommand):
         ]
         tags = []
         for name, slug in tag_data:
-            t, _ = Tag.objects.get_or_create(name=name, slug=slug)
+            t, _ = Tag.objects.get_or_create(
+                slug=slug,
+                defaults={"name": name},
+            )
+            if not t.name:
+                t.name = name
+                t.save(update_fields=["name"])
             tags.append(t)
         self.stdout.write(self.style.SUCCESS(f"Tags: {len(tags)}"))
 
