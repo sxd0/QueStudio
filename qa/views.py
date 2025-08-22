@@ -99,6 +99,22 @@ class TopicViewSet(viewsets.ModelViewSet):
             topic.refresh_from_db(fields=["rating"])
             return Response({"rating": topic.rating, "status": "voted"})
 
+    @action(detail=False, methods=["get"], url_path="hot", permission_classes=[permissions.AllowAny])
+    def hot(self, request):
+        qs = (Topic.objects.hot()
+              .select_related("category", "author")
+              .prefetch_related("tags"))
+        page = self.paginate_queryset(qs)
+        ser = TopicListSerializer(page or qs, many=True, context={"request": request})
+        return self.get_paginated_response(ser.data) if page is not None else Response(ser.data)
+
+    @action(detail=False, methods=["get"], url_path="new", permission_classes=[permissions.AllowAny])
+    def new(self, request):
+        qs = (self.get_queryset().order_by("-created_at"))
+        page = self.paginate_queryset(qs)
+        ser = TopicListSerializer(page or qs, many=True, context={"request": request})
+        return self.get_paginated_response(ser.data) if page is not None else Response(ser.data)
+
 
 class PostViewSet(viewsets.ModelViewSet):
     serializer_class = PostSerializer
