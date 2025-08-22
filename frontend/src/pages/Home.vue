@@ -9,25 +9,40 @@ const q = ref("");
 const searchResults = ref(null);
 const loading = ref(false);
 
-async function loadWidgets() {
-  const [h, n, l] = await Promise.all([
-    api.get("/topics/hot/"),
-    api.get("/topics/new/"),
-    api.get("/accounts/leaderboard/"),
-  ]);
-  hot.value = h.data.results || h.data;
-  newest.value = n.data.results || n.data;
-  leaders.value = l.data;
+const hotPage = ref({ next: null, prev: null });
+const newPage = ref({ next: null, prev: null });
+const searchPage = ref({ next: null, prev: null });
+
+async function loadHot(url = "/topics/hot/") {
+  const r = await api.get(url);
+  hot.value = r.data.results || r.data;
+  hotPage.value = { next: r.data.next ?? null, prev: r.data.previous ?? null };
 }
 
-async function doSearch() {
+async function loadNew(url = "/topics/new/") {
+  const r = await api.get(url);
+  newest.value = r.data.results || r.data;
+  newPage.value = { next: r.data.next ?? null, prev: r.data.previous ?? null };
+}
+
+async function doSearch(url = null) {
   loading.value = true;
   try {
-    const r = await api.get("/topics/", { params: { q: q.value, ordering: "-posts_count" } });
+    const r = await api.get(url || "/topics/", {
+      params: { q: q.value, ordering: "-posts_count" },
+    });
     searchResults.value = r.data.results || r.data;
+    searchPage.value = { next: r.data.next ?? null, prev: r.data.previous ?? null };
   } finally {
     loading.value = false;
   }
+}
+
+async function loadWidgets() {
+  const l = await api.get("/accounts/leaderboard/");
+  leaders.value = l.data;
+  await loadHot();
+  await loadNew();
 }
 
 onMounted(loadWidgets);
@@ -37,8 +52,8 @@ onMounted(loadWidgets);
   <div>
     <div class="card">
       <h2>Поиск по темам</h2>
-      <input v-model="q" placeholder="что ищем?" @keyup.enter="doSearch" />
-      <button @click="doSearch">Поиск</button>
+      <input v-model="q" placeholder="что ищем?" @keyup.enter="doSearch()" />
+      <button @click="doSearch()">Поиск</button>
     </div>
 
     <div v-if="searchResults" class="card">
@@ -50,6 +65,10 @@ onMounted(loadWidgets);
           <small> — {{ t.category_name }} · постов: {{ t.posts_count ?? 0 }} · рейтинг: {{ t.rating }}</small>
         </li>
       </ul>
+      <div>
+        <button :disabled="!searchPage.prev" @click="doSearch(searchPage.prev)">Назад</button>
+        <button :disabled="!searchPage.next" @click="doSearch(searchPage.next)">Вперёд</button>
+      </div>
     </div>
 
     <div class="grid">
@@ -61,6 +80,10 @@ onMounted(loadWidgets);
             <small> · постов: {{ t.posts_count ?? 0 }} · посл. активность: {{ t.last_activity }}</small>
           </li>
         </ul>
+        <div>
+          <button :disabled="!hotPage.prev" @click="loadHot(hotPage.prev)">Назад</button>
+          <button :disabled="!hotPage.next" @click="loadHot(hotPage.next)">Вперёд</button>
+        </div>
       </div>
 
       <div class="card">
@@ -71,6 +94,10 @@ onMounted(loadWidgets);
             <small> · {{ t.created_at }}</small>
           </li>
         </ul>
+        <div>
+          <button :disabled="!newPage.prev" @click="loadNew(newPage.prev)">Назад</button>
+          <button :disabled="!newPage.next" @click="loadNew(newPage.next)">Вперёд</button>
+        </div>
       </div>
     </div>
 
@@ -78,10 +105,15 @@ onMounted(loadWidgets);
       <h2>👑 Топ пользователи</h2>
       <ol>
         <li v-for="u in leaders" :key="u.username">
-          {{ u.display_name }} ({{ u.username }}) — рейтинг: {{ u.total_rating }},
+          {{ u.display_name || u.username }} ({{ u.username }}) — рейтинг: {{ u.total_rating }},
           тем: {{ u.topics }}, постов: {{ u.posts }}
         </li>
       </ol>
     </div>
   </div>
 </template>
+
+<style>
+.card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+.grid { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+</style>

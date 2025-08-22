@@ -113,6 +113,10 @@ class PostSerializer(serializers.ModelSerializer):
         fields = ("id", "topic", "author", "author_name", "body", "rating", "is_accepted", "created_at")
         read_only_fields = ("author", "rating", "created_at")
 
+    def get_is_editable(self, obj):
+        request = self.context.get("request")
+        return bool(request and request.user.is_authenticated and (request.user.is_staff or obj.author_id == request.user.id))
+
     def validate_body(self, value):
         validate_no_banned_words(value)
         return value

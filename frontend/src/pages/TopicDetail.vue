@@ -54,6 +54,36 @@ async function addComment(pid) {
   await load();
 }
 
+async function editPost(p) {
+  const text = window.prompt("Новый текст ответа:", p.body);
+  if (!text || text.trim() === p.body) return;
+  await api.patch(`/posts/${p.id}/`, { body: text.trim() });
+  await load();
+  router.push(`/topic/${id}`); 
+}
+
+async function deletePost(p) {
+  if (!window.confirm("Точно удалить ответ?")) return;
+  await api.delete(`/posts/${p.id}/`);
+  await load();
+  router.push(`/topic/${id}`); 
+}
+
+async function editTopic() {
+  const title = window.prompt("Новый заголовок:", topic.value.title);
+  if (!title || title.trim() === topic.value.title) return;
+  const body = window.prompt("Новый текст темы:", topic.value.body || "");
+  await api.patch(`/topics/${id}/`, { title: title.trim(), body: (body || "").trim() });
+  await load();
+  router.push(`/topic/${id}`);
+}
+
+async function deleteTopic() {
+  if (!window.confirm("Точно удалить тему?")) return;
+  await api.delete(`/topics/${id}/`);
+  router.push(`/`);
+}
+
 onMounted(async () => {
   await loadMe();
   await load();
@@ -71,16 +101,26 @@ onMounted(async () => {
         <button @click="voteTopic(1)">👍</button>
         <button @click="voteTopic(-1)">👎</button>
       </div>
+      <div v-if="topic.is_editable" style="margin-top:6px">
+        <button @click="editTopic">Редактировать тему</button>
+        <button @click="deleteTopic">Удалить тему</button>
+      </div>
     </div>
 
     <div class="card">
       <h3>Ответы</h3>
+
       <div v-for="p in posts" :key="p.id" class="card">
         <p>{{ p.body }}</p>
         <small>Автор: {{ p.author_name }} · рейтинг: {{ p.rating }}</small>
         <div>
           <button @click="votePost(p.id, 1)">👍</button>
           <button @click="votePost(p.id, -1)">👎</button>
+        </div>
+
+        <div v-if="p.is_editable" style="margin-top:6px">
+          <button @click="editPost(p)">Редактировать</button>
+          <button @click="deletePost(p)">Удалить</button>
         </div>
 
         <div class="card">

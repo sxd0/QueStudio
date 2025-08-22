@@ -12,6 +12,8 @@ from .serializers import (
 )
 from .permissions import IsAuthorOrAdmin
 from .filters import TopicFilter
+from rest_framework.views import APIView
+from django.db.models import Count
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
@@ -178,3 +180,12 @@ class CommentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+
+class TagCloudAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+    def get(self, request):
+        data = (Tag.objects
+                .annotate(topics=Count("topic"))
+                .values("slug", "name", "topics")
+                .order_by("-topics"))
+        return Response(list(data))

@@ -1,6 +1,7 @@
 from rest_framework.routers import DefaultRouter
 from django.urls import path, include
 from .views import CategoryViewSet, TagViewSet, TopicViewSet, PostViewSet, CommentViewSet
+from .views import TagCloudAPIView
 
 app_name = "qa"
 
@@ -12,5 +13,6 @@ router.register(r"posts", PostViewSet, basename="post")
 router.register(r"comments", CommentViewSet, basename="comment")
 
 urlpatterns = [
+    path("tags/cloud/", TagCloudAPIView.as_view(), name="tag-cloud"),
     path("", include(router.urls)),
 ]
