@@ -1,0 +1,5 @@
+[
+  {"model":"qa.category","pk":1,"fields":{"name":"Python","slug":"python"}},
+  {"model":"qa.tag","pk":1,"fields":{"name":"Django","slug":"django"}},
+  {"model":"qa.tag","pk":2,"fields":{"name":"DRF","slug":"drf"}}
+]
