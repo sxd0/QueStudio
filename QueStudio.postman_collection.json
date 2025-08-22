@@ -1,0 +1,100 @@
+{
+  "info": {
+    "name": "QueStudio API",
+    "_postman_id": "b2c7e2b5-aaaa-bbbb-cccc-questudio",
+    "description": "Basic collection for auth, topics, posts, comments, votes.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth / Register",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type","value": "application/json"}],
+        "url": "{{baseUrl}}/accounts/register/",
+        "body": {"mode":"raw","raw":"{\n  \"username\":\"user1\",\n  \"email\":\"user1@example.com\",\n  \"password\":\"123456\"\n}"}
+      }
+    },
+    {
+      "name": "Auth / Login",
+      "request": {
+        "method": "POST",
+        "header": [{"key":"Content-Type","value":"application/json"}],
+        "url": "{{baseUrl}}/accounts/login/",
+        "body": {"mode":"raw","raw":"{\n  \"username\":\"user1\",\n  \"password\":\"123456\"\n}"}
+      }
+    },
+    {
+      "name": "Accounts / Me",
+      "request": {
+        "method": "GET",
+        "header": [{"key":"Authorization","value":"Bearer {{access}}"}],
+        "url": "{{baseUrl}}/accounts/me/"
+      }
+    },
+    {
+      "name": "Topics / Create",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key":"Content-Type","value":"application/json"},
+          {"key":"Authorization","value":"Bearer {{access}}"}
+        ],
+        "url": "{{baseUrl}}/topics/",
+        "body": {"mode":"raw","raw":"{\n  \"title\":\"Пример темы\",\n  \"body\":\"Текст темы\",\n  \"category_slug\":\"python\",\n  \"status\":1\n}"}
+      }
+    },
+    {
+      "name": "Topics / List (q, ordering)",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/topics/?q=django&ordering=-posts_count"
+      }
+    },
+    {
+      "name": "Topics / Hot",
+      "request": {"method":"GET","url":"{{baseUrl}}/topics/hot/"}
+    },
+    {
+      "name": "Topics / New",
+      "request": {"method":"GET","url":"{{baseUrl}}/topics/new/"}
+    },
+    {
+      "name": "Topics / Vote +1 (by id)",
+      "request": {
+        "method": "POST",
+        "header": [{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{access}}"}],
+        "url": "{{baseUrl}}/topics/{{topicId}}/vote/",
+        "body": {"mode":"raw","raw":"{\"value\":1}"}
+      }
+    },
+    {
+      "name": "Posts / Create",
+      "request": {
+        "method": "POST",
+        "header": [{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{access}}"}],
+        "url": "{{baseUrl}}/posts/",
+        "body": {"mode":"raw","raw":"{\n  \"topic\": {{topicId}},\n  \"body\": \"Текст ответа\"\n}"}
+      }
+    },
+    {
+      "name": "Comments / Create for Post",
+      "request": {
+        "method": "POST",
+        "header": [{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{access}}"}],
+        "url": "{{baseUrl}}/comments/",
+        "body": {"mode":"raw","raw":"{\n  \"post\": {{postId}},\n  \"body\": \"Комментарий\"\n}"}
+      }
+    },
+    {
+      "name": "Accounts / Leaderboard",
+      "request": {"method":"GET","url":"{{baseUrl}}/accounts/leaderboard/"}
+    }
+  ],
+  "variable": [
+    {"key":"baseUrl","value":"http://localhost:8000/api/v1"},
+    {"key":"access","value":""},
+    {"key":"topicId","value":"1"},
+    {"key":"postId","value":"1"}
+  ]
+}
