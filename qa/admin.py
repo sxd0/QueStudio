@@ -1,5 +1,36 @@
 from django.contrib import admin
 from .models import Category, Tag, Topic, TopicTag, Post, Comment, Attachment, TopicVote, PostVote
+from django.contrib import admin
+from django.http import HttpResponse
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from django.db.models import Count
+
+@admin.action(description="Экспортировать выбранные темы в PDF")
+def export_topics_to_pdf(modeladmin, request, queryset):
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = 'attachment; filename="topics.pdf"'
+    p = canvas.Canvas(response, pagesize=A4)
+    width, height = A4
+    y = height - 50
+    for t in queryset.select_related("category", "author"):
+        lines = [
+            f"Тема: {t.title}",
+            f"Категория: {t.category.name}",
+            f"Автор: {t.author.username}",
+            f"Рейтинг: {t.rating}",
+            f"Постов: {t.posts.count()}",
+            "-" * 60,
+        ]
+        for line in lines:
+            p.drawString(40, y, line)
+            y -= 16
+            if y < 60:
+                p.showPage()
+                y = height - 50
+    p.showPage()
+    p.save()
+    return response
 
 class AttachmentInline(admin.TabularInline):
     model = Attachment
@@ -33,6 +64,7 @@ class TopicTagInline(admin.TabularInline):
     extra = 1
     raw_id_fields = ("tag",)
 
+@admin.register(Topic)
 class TopicAdmin(admin.ModelAdmin):
     list_display = ("id", "title", "category", "author", "status", "rating", "created_at", "posts_total")
     list_display_links = ("id", "title")
@@ -43,10 +75,17 @@ class TopicAdmin(admin.ModelAdmin):
     raw_id_fields = ("author", "category")
     inlines = (PostInline, TopicTagInline)
     prepopulated_fields = {"slug": ("title",)}
+    actions = [export_topics_to_pdf]
 
-    @admin.display(description="Сообщений")
+    list_select_related = ("category", "author")
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related("category", "author").annotate(posts_total=Count("posts"))
+
+    @admin.display(description="Сообщений", ordering="posts_total")
     def posts_total(self, obj):
-        return obj.posts.count()
+        return obj.posts_total
 
 
 @admin.register(Post)

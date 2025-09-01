@@ -185,7 +185,7 @@ class TagCloudAPIView(APIView):
     permission_classes = [permissions.AllowAny]
     def get(self, request):
         data = (Tag.objects
-                .annotate(topics=Count("topic"))
+                .annotate(topics=Count("topics"))
                 .values("slug", "name", "topics")
                 .order_by("-topics"))
         return Response(list(data))
