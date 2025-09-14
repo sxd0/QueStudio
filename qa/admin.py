@@ -64,6 +64,24 @@ class TopicTagInline(admin.TabularInline):
     extra = 1
     raw_id_fields = ("tag",)
 
+@admin.action(description="Экспортировать выбранные темы в PDF")
+def export_topics_to_pdf(modeladmin, request, queryset):
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = 'attachment; filename="topics.pdf"'
+    p = canvas.Canvas(response, pagesize=A4)
+    width, height = A4
+    y = height - 50
+    p.setFont("Helvetica", 12)
+    for topic in queryset.select_related("category", "author"):
+        line = f"[{topic.id}] {topic.title} — {topic.category.name} — автор: {topic.author.username}"
+        p.drawString(40, y, line[:110])
+        y -= 20
+        if y < 60:
+            p.showPage(); y = height - 50
+    p.showPage()
+    p.save()
+    return response
+
 @admin.register(Topic)
 class TopicAdmin(admin.ModelAdmin):
     list_display = ("id", "title", "category", "author", "status", "rating", "created_at", "posts_total")
