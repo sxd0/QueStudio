@@ -1,84 +1,80 @@
 import axios from "axios";
 
+const BASE = import.meta.env.VITE_API || "http://localhost:8000/api/v1";
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API || "http://localhost:8000/api/v1",
-  withCredentials: false,
+  baseURL: BASE,
 });
 
-function getTokens() {
-  const access = localStorage.getItem("access");
-  const refresh = localStorage.getItem("refresh");
-  return { access, refresh };
-}
-function setTokens({ access, refresh }) {
-  if (access) localStorage.setItem("access", access);
-  if (refresh) localStorage.setItem("refresh", refresh);
-}
-function clearTokens() {
+function getAccess()  { return localStorage.getItem("access") || ""; }
+function getRefresh() { return localStorage.getItem("refresh") || ""; }
+function setAccess(t) { if (t) localStorage.setItem("access", t); }
+function setRefresh(t){ if (t) localStorage.setItem("refresh", t); }
+export function clearAuth() {
   localStorage.removeItem("access");
   localStorage.removeItem("refresh");
 }
 
-api.interceptors.request.use((config) => {
-  const { access } = getTokens();
-  if (access) config.headers.Authorization = `Bearer ${access}`;
-  return config;
+api.interceptors.request.use((cfg) => {
+  const token = getAccess();
+  if (token) cfg.headers.Authorization = `Bearer ${token}`;
+  return cfg;
 });
 
-let isRefreshing = false;
-let queue = [];
-
+let refreshing = false;
+let pending = [];
 api.interceptors.response.use(
-  (res) => res,
-  async (error) => {
-    const original = error.config || {};
-    const status = error?.response?.status;
-
+  r => r,
+  async (err) => {
+    const status = err?.response?.status;
+    const original = err.config || {};
     if (status === 401 && !original._retry) {
-      const { refresh } = getTokens();
-      if (!refresh) {
-        clearTokens();
-        return Promise.reject(error);
-      }
-
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          queue.push({ resolve, reject });
-        })
-          .then((token) => {
-            original.headers.Authorization = `Bearer ${token}`;
-            return api(original);
-          })
-          .catch((err) => Promise.reject(err));
-      }
+      const refresh = getRefresh();
+      if (!refresh) { clearAuth(); return Promise.reject(err); }
 
       original._retry = true;
-      isRefreshing = true;
+
+      if (refreshing) {
+        return new Promise((resolve, reject) => {
+          pending.push({ resolve, reject });
+        }).then((newAccess) => {
+          original.headers.Authorization = `Bearer ${newAccess}`;
+          return api(original);
+        });
+      }
+
+      refreshing = true;
       try {
-        const r = await axios.post(
-          (import.meta.env.VITE_API || "http://localhost:8000/api/v1") + "/auth/refresh/",
-          { refresh }
-        );
-        const newAccess = r.data.access || r.data.access_token;
-        if (!newAccess) throw new Error("No access token in refresh response");
-        setTokens({ access: newAccess });
-        queue.forEach(({ resolve }) => resolve(newAccess));
-        queue = [];
+        const r = await axios.post(`${BASE}/accounts/refresh/`, { refresh });
+        const newAccess = r.data?.access;
+        if (!newAccess) throw new Error("no access");
+        setAccess(newAccess);
+        pending.forEach(p => p.resolve(newAccess));
+        pending = [];
         original.headers.Authorization = `Bearer ${newAccess}`;
         return api(original);
       } catch (e) {
-        clearTokens();
-        queue.forEach(({ reject }) => reject(e));
-        queue = [];
+        clearAuth();
+        pending.forEach(p => p.reject(e));
+        pending = [];
         return Promise.reject(e);
       } finally {
-        isRefreshing = false;
+        refreshing = false;
       }
     }
-
-    return Promise.reject(error);
+    return Promise.reject(err);
   }
 );
 
+export async function login(username, password) {
+  const r = await api.post("/accounts/login/", { username, password });
+  const { access, refresh } = r.data;
+  setAccess(access); setRefresh(refresh);
+  return r.data;
+}
+
+export async function register(username, email, password) {
+  return api.post("/accounts/register/", { username, email, password });
+}
+
 export default api;
-export { setTokens, clearTokens, getTokens };

@@ -7,6 +7,7 @@ const routes = [
   { path: "/", name: "home", component: Home },
   { path: "/topic/:id", name: "topic", component: TopicDetail, props: true },
   { path: "/login", name: "login", component: Login },
+  { path: "/:pathMatch(.*)*", component: { template: "<div class='card'>404</div>" } },
 ];
 
 export default createRouter({

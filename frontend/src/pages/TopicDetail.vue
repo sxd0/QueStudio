@@ -11,9 +11,9 @@ const topic = ref(null);
 const posts = ref([]);
 const newPost = ref("");
 const newComment = ref({});
-const loading = ref(false);
 const me = ref(null);
-const err = ref("");
+const loading = ref(false);
+const error = ref("");
 
 async function loadMe() {
   try { const r = await api.get("/accounts/me/"); me.value = r.data; }
@@ -21,85 +21,77 @@ async function loadMe() {
 }
 
 async function load() {
-  loading.value = true;
-  err.value = "";
+  loading.value = true; error.value = "";
   try {
     const t = await api.get(`/topics/${id}/`);
     topic.value = t.data;
     const p = await api.get("/posts/", { params: { topic: id }});
-    posts.value = p.data.results || p.data;
-  } catch (e) {
-    err.value = "Не удалось загрузить тему или ответы";
-  } finally { loading.value = false; }
+    posts.value = p.data.results || p.data || [];
+  } catch { error.value = "Не удалось загрузить тему или ответы"; }
+  finally { loading.value = false; }
 }
 
-function ensureAuth() {
+function requireAuth(nextPath) {
   if (!me.value) {
-    alert("Нужно войти, чтобы выполнить действие");
-    router.push({ name: "login", query: { next: `/topic/${id}` } });
+    router.push({ name: "login", query: { next: nextPath || route.fullPath } });
     return false;
   }
   return true;
 }
 
 async function voteTopic(val) {
-  if (!ensureAuth()) return;
-  await api.post(`/topics/${id}/vote/`, { value: val }).catch(()=>{});
-  await load();
+  if (!requireAuth(`/topic/${id}`)) return;
+  try { await api.post(`/topics/${id}/vote/`, { value: val }); await load(); } catch {}
 }
 
 async function addPost() {
-  if (!ensureAuth()) return;
-  if (!newPost.value.trim()) return;
-  await api.post("/posts/", { topic: id, body: newPost.value }).catch(()=>{});
-  newPost.value = "";
-  await load();
+  if (!requireAuth(`/topic/${id}`)) return;
+  const body = newPost.value.trim();
+  if (!body) return;
+  try { await api.post("/posts/", { topic: id, body }); newPost.value = ""; await load(); } catch {}
 }
 
 async function votePost(pid, val) {
-  if (!ensureAuth()) return;
-  await api.post(`/posts/${pid}/vote/`, { value: val }).catch(()=>{});
-  await load();
+  if (!requireAuth(`/topic/${id}`)) return;
+  try { await api.post(`/posts/${pid}/vote/`, { value: val }); await load(); } catch {}
 }
 
 async function addComment(pid) {
-  if (!ensureAuth()) return;
+  if (!requireAuth(`/topic/${id}`)) return;
   const body = (newComment.value[pid] || "").trim();
   if (!body) return;
-  await api.post("/comments/", { post: pid, body }).catch(()=>{});
-  newComment.value[pid] = "";
-  await load();
+  try { await api.post("/comments/", { post: pid, body }); newComment.value[pid] = ""; await load(); } catch {}
 }
 
 async function editPost(p) {
-  if (!ensureAuth()) return;
+  if (!requireAuth(`/topic/${id}`)) return;
+  if (!(me.value?.username && me.value.username === p.author_name)) return;
   const text = window.prompt("Новый текст ответа:", p.body);
   if (!text || text.trim() === p.body) return;
-  await api.patch(`/posts/${p.id}/`, { body: text.trim() }).catch(()=>{});
-  await load();
+  try { await api.patch(`/posts/${p.id}/`, { body: text.trim() }); await load(); } catch {}
 }
 
 async function deletePost(p) {
-  if (!ensureAuth()) return;
+  if (!requireAuth(`/topic/${id}`)) return;
+  if (!(me.value?.username && me.value.username === p.author_name)) return;
   if (!window.confirm("Точно удалить ответ?")) return;
-  await api.delete(`/posts/${p.id}/`).catch(()=>{});
-  await load();
+  try { await api.delete(`/posts/${p.id}/`); await load(); } catch {}
 }
 
 async function editTopic() {
-  if (!ensureAuth()) return;
+  if (!requireAuth(`/topic/${id}`)) return;
+  if (!topic.value?.is_editable) return;
   const title = window.prompt("Новый заголовок:", topic.value.title);
   if (!title || title.trim() === topic.value.title) return;
   const body = window.prompt("Новый текст темы:", topic.value.body || "");
-  await api.patch(`/topics/${id}/`, { title: title.trim(), body: (body || "").trim() }).catch(()=>{});
-  await load();
+  try { await api.patch(`/topics/${id}/`, { title: title.trim(), body: (body||"").trim() }); await load(); } catch {}
 }
 
 async function deleteTopic() {
-  if (!ensureAuth()) return;
+  if (!requireAuth(`/topic/${id}`)) return;
+  if (!topic.value?.is_editable) return;
   if (!window.confirm("Точно удалить тему?")) return;
-  await api.delete(`/topics/${id}/`).catch(()=>{});
-  router.push(`/`);
+  try { await api.delete(`/topics/${id}/`); router.push("/"); } catch {}
 }
 
 onMounted(async () => {
@@ -110,7 +102,7 @@ onMounted(async () => {
 
 <template>
   <div v-if="loading" class="card">Загрузка...</div>
-  <div v-else-if="err" class="card" style="color:#b00">{{ err }}</div>
+  <div v-else-if="error" class="card" style="color:#b00">{{ error }}</div>
   <div v-else-if="!topic" class="card">Тема не найдена</div>
   <div v-else>
     <div class="card">
@@ -138,7 +130,7 @@ onMounted(async () => {
           <button @click="votePost(p.id, -1)">👎</button>
         </div>
 
-        <div v-if="p.is_editable" style="margin-top:6px">
+        <div v-if="me && me.username === p.author_name" style="margin-top:6px">
           <button @click="editPost(p)">Редактировать</button>
           <button @click="deletePost(p)">Удалить</button>
         </div>
@@ -158,3 +150,8 @@ onMounted(async () => {
     </div>
   </div>
 </template>
+
+<style>
+.card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+textarea, input, button { margin-top: 6px; }
+</style>

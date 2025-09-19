@@ -7,14 +7,13 @@ const newest = ref([]);
 const leaders = ref([]);
 const q = ref("");
 const searchResults = ref(null);
-const loading = ref(false);
-
 const hotPage = ref({ next: null, prev: null });
 const newPage = ref({ next: null, prev: null });
 const searchPage = ref({ next: null, prev: null });
+const loading = ref(false);
 
-async function safeGet(url, config) {
-  try { return await api.get(url, config); } catch { return { data: [] }; }
+async function safeGet(url, cfg) {
+  try { return await api.get(url, cfg); } catch { return { data: [] }; }
 }
 
 async function loadHot(url = "/topics/hot/") {
@@ -22,32 +21,27 @@ async function loadHot(url = "/topics/hot/") {
   hot.value = r.data.results || r.data || [];
   hotPage.value = { next: r.data?.next ?? null, prev: r.data?.previous ?? null };
 }
-
 async function loadNew(url = "/topics/new/") {
   const r = await safeGet(url);
   newest.value = r.data.results || r.data || [];
   newPage.value = { next: r.data?.next ?? null, prev: r.data?.previous ?? null };
 }
-
 async function doSearch(url = null) {
   loading.value = true;
   try {
     const r = await safeGet(url || "/topics/", { params: { q: q.value, ordering: "-posts_count" } });
     searchResults.value = r.data.results || r.data || [];
     searchPage.value = { next: r.data?.next ?? null, prev: r.data?.previous ?? null };
-  } finally {
-    loading.value = false;
-  }
+  } finally { loading.value = false; }
+}
+async function loadLeaders() {
+  const r = await safeGet("/accounts/leaderboard/");
+  leaders.value = r.data || [];
 }
 
-async function loadWidgets() {
-  const l = await safeGet("/accounts/leaderboard/");
-  leaders.value = l.data || [];
-  await loadHot();
-  await loadNew();
-}
-
-onMounted(loadWidgets);
+onMounted(async () => {
+  await Promise.all([loadLeaders(), loadHot(), loadNew()]);
+});
 </script>
 
 <template>
@@ -55,7 +49,7 @@ onMounted(loadWidgets);
     <div class="card">
       <h2>Поиск по темам</h2>
       <input v-model="q" placeholder="что ищем?" @keyup.enter="doSearch()" />
-      <button @click="doSearch()">Поиск</button>
+      <button @click="doSearch" :disabled="loading">Поиск</button>
     </div>
 
     <div v-if="searchResults" class="card">
@@ -79,7 +73,7 @@ onMounted(loadWidgets);
         <ul>
           <li v-for="t in hot" :key="t.id">
             <router-link :to="`/topic/${t.id}`">{{ t.title }}</router-link>
-            <small> · постов: {{ t.posts_count ?? 0 }} · посл. активность: {{ t.last_activity_at || t.last_activity }}</small>
+            <small> · постов: {{ t.posts_count ?? 0 }} · посл. активн.: {{ t.last_activity }}</small>
           </li>
         </ul>
         <div>
@@ -105,11 +99,10 @@ onMounted(loadWidgets);
 
     <div class="card">
       <h2>👑 Топ пользователи</h2>
-      <div v-if="!leaders.length"><i>Войдите, чтобы увидеть лидеров или сделайте эндпоинт публичным</i></div>
+      <div v-if="!leaders.length"><i>Пока пусто</i></div>
       <ol v-else>
         <li v-for="u in leaders" :key="u.username">
-          {{ u.display_name || u.username }} ({{ u.username }}) — рейтинг: {{ u.total_rating }},
-          тем: {{ u.topics }}, постов: {{ u.posts }}
+          {{ u.display_name || u.username }} — рейтинг: {{ u.total_rating }}, тем: {{ u.topics }}, постов: {{ u.posts }}
         </li>
       </ol>
     </div>
