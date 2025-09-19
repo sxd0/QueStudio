@@ -13,74 +13,92 @@ const newPost = ref("");
 const newComment = ref({});
 const loading = ref(false);
 const me = ref(null);
+const err = ref("");
 
 async function loadMe() {
-  try { const r = await api.get("/accounts/me/"); me.value = r.data; } catch { me.value = null; }
+  try { const r = await api.get("/accounts/me/"); me.value = r.data; }
+  catch { me.value = null; }
 }
 
 async function load() {
   loading.value = true;
+  err.value = "";
   try {
     const t = await api.get(`/topics/${id}/`);
     topic.value = t.data;
     const p = await api.get("/posts/", { params: { topic: id }});
     posts.value = p.data.results || p.data;
+  } catch (e) {
+    err.value = "Не удалось загрузить тему или ответы";
   } finally { loading.value = false; }
 }
 
+function ensureAuth() {
+  if (!me.value) {
+    alert("Нужно войти, чтобы выполнить действие");
+    router.push({ name: "login", query: { next: `/topic/${id}` } });
+    return false;
+  }
+  return true;
+}
+
 async function voteTopic(val) {
-  await api.post(`/topics/${id}/vote/`, { value: val });
+  if (!ensureAuth()) return;
+  await api.post(`/topics/${id}/vote/`, { value: val }).catch(()=>{});
   await load();
 }
 
 async function addPost() {
+  if (!ensureAuth()) return;
   if (!newPost.value.trim()) return;
-  await api.post("/posts/", { topic: id, body: newPost.value });
+  await api.post("/posts/", { topic: id, body: newPost.value }).catch(()=>{});
   newPost.value = "";
   await load();
-  router.push(`/topic/${id}`);
 }
 
 async function votePost(pid, val) {
-  await api.post(`/posts/${pid}/vote/`, { value: val });
+  if (!ensureAuth()) return;
+  await api.post(`/posts/${pid}/vote/`, { value: val }).catch(()=>{});
   await load();
 }
 
 async function addComment(pid) {
+  if (!ensureAuth()) return;
   const body = (newComment.value[pid] || "").trim();
   if (!body) return;
-  await api.post("/comments/", { post: pid, body });
+  await api.post("/comments/", { post: pid, body }).catch(()=>{});
   newComment.value[pid] = "";
   await load();
 }
 
 async function editPost(p) {
+  if (!ensureAuth()) return;
   const text = window.prompt("Новый текст ответа:", p.body);
   if (!text || text.trim() === p.body) return;
-  await api.patch(`/posts/${p.id}/`, { body: text.trim() });
+  await api.patch(`/posts/${p.id}/`, { body: text.trim() }).catch(()=>{});
   await load();
-  router.push(`/topic/${id}`); 
 }
 
 async function deletePost(p) {
+  if (!ensureAuth()) return;
   if (!window.confirm("Точно удалить ответ?")) return;
-  await api.delete(`/posts/${p.id}/`);
+  await api.delete(`/posts/${p.id}/`).catch(()=>{});
   await load();
-  router.push(`/topic/${id}`); 
 }
 
 async function editTopic() {
+  if (!ensureAuth()) return;
   const title = window.prompt("Новый заголовок:", topic.value.title);
   if (!title || title.trim() === topic.value.title) return;
   const body = window.prompt("Новый текст темы:", topic.value.body || "");
-  await api.patch(`/topics/${id}/`, { title: title.trim(), body: (body || "").trim() });
+  await api.patch(`/topics/${id}/`, { title: title.trim(), body: (body || "").trim() }).catch(()=>{});
   await load();
-  router.push(`/topic/${id}`);
 }
 
 async function deleteTopic() {
+  if (!ensureAuth()) return;
   if (!window.confirm("Точно удалить тему?")) return;
-  await api.delete(`/topics/${id}/`);
+  await api.delete(`/topics/${id}/`).catch(()=>{});
   router.push(`/`);
 }
 
@@ -91,7 +109,9 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div v-if="!topic" class="card">Загрузка...</div>
+  <div v-if="loading" class="card">Загрузка...</div>
+  <div v-else-if="err" class="card" style="color:#b00">{{ err }}</div>
+  <div v-else-if="!topic" class="card">Тема не найдена</div>
   <div v-else>
     <div class="card">
       <h2>{{ topic.title }}</h2>

@@ -13,34 +13,36 @@ const hotPage = ref({ next: null, prev: null });
 const newPage = ref({ next: null, prev: null });
 const searchPage = ref({ next: null, prev: null });
 
+async function safeGet(url, config) {
+  try { return await api.get(url, config); } catch { return { data: [] }; }
+}
+
 async function loadHot(url = "/topics/hot/") {
-  const r = await api.get(url);
-  hot.value = r.data.results || r.data;
-  hotPage.value = { next: r.data.next ?? null, prev: r.data.previous ?? null };
+  const r = await safeGet(url);
+  hot.value = r.data.results || r.data || [];
+  hotPage.value = { next: r.data?.next ?? null, prev: r.data?.previous ?? null };
 }
 
 async function loadNew(url = "/topics/new/") {
-  const r = await api.get(url);
-  newest.value = r.data.results || r.data;
-  newPage.value = { next: r.data.next ?? null, prev: r.data.previous ?? null };
+  const r = await safeGet(url);
+  newest.value = r.data.results || r.data || [];
+  newPage.value = { next: r.data?.next ?? null, prev: r.data?.previous ?? null };
 }
 
 async function doSearch(url = null) {
   loading.value = true;
   try {
-    const r = await api.get(url || "/topics/", {
-      params: { q: q.value, ordering: "-posts_count" },
-    });
-    searchResults.value = r.data.results || r.data;
-    searchPage.value = { next: r.data.next ?? null, prev: r.data.previous ?? null };
+    const r = await safeGet(url || "/topics/", { params: { q: q.value, ordering: "-posts_count" } });
+    searchResults.value = r.data.results || r.data || [];
+    searchPage.value = { next: r.data?.next ?? null, prev: r.data?.previous ?? null };
   } finally {
     loading.value = false;
   }
 }
 
 async function loadWidgets() {
-  const l = await api.get("/accounts/leaderboard/");
-  leaders.value = l.data;
+  const l = await safeGet("/accounts/leaderboard/");
+  leaders.value = l.data || [];
   await loadHot();
   await loadNew();
 }
@@ -77,7 +79,7 @@ onMounted(loadWidgets);
         <ul>
           <li v-for="t in hot" :key="t.id">
             <router-link :to="`/topic/${t.id}`">{{ t.title }}</router-link>
-            <small> · постов: {{ t.posts_count ?? 0 }} · посл. активность: {{ t.last_activity }}</small>
+            <small> · постов: {{ t.posts_count ?? 0 }} · посл. активность: {{ t.last_activity_at || t.last_activity }}</small>
           </li>
         </ul>
         <div>
@@ -103,7 +105,8 @@ onMounted(loadWidgets);
 
     <div class="card">
       <h2>👑 Топ пользователи</h2>
-      <ol>
+      <div v-if="!leaders.length"><i>Войдите, чтобы увидеть лидеров или сделайте эндпоинт публичным</i></div>
+      <ol v-else>
         <li v-for="u in leaders" :key="u.username">
           {{ u.display_name || u.username }} ({{ u.username }}) — рейтинг: {{ u.total_rating }},
           тем: {{ u.topics }}, постов: {{ u.posts }}
