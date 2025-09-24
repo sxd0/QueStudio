@@ -11,6 +11,7 @@ class TopicFilter(df.FilterSet):
     rating_gte = df.NumberFilter(field_name="rating", lookup_expr="gte")
     rating_lte = df.NumberFilter(field_name="rating", lookup_expr="lte")
     q = df.CharFilter(method="filter_q")
+    q_cs = df.CharFilter(method="filter_q_cs")
 
     class Meta:
         model = Topic
@@ -18,3 +19,6 @@ class TopicFilter(df.FilterSet):
 
     def filter_q(self, queryset, name, value):
         return queryset.filter(Q(title__icontains=value) | Q(body__icontains=value))
+
+    def filter_q_cs(self, queryset, name, value):
+        return queryset.filter(Q(title__contains=value) | Q(body__contains=value))

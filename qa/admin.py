@@ -5,6 +5,13 @@ from django.http import HttpResponse
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from django.db.models import Count
+from django.contrib import admin, messages
+from django.db.models import F
+
+@admin.action(description="Инкрементировать рейтинг выбранных тем на 1")
+def increment_topic_rating(modeladmin, request, queryset):
+    updated = queryset.update(rating=F("rating") + 1)
+    messages.success(request, f"Обновлено записей: {updated}")
 
 @admin.action(description="Экспортировать выбранные темы в PDF")
 def export_topics_to_pdf(modeladmin, request, queryset):
@@ -93,7 +100,7 @@ class TopicAdmin(admin.ModelAdmin):
     raw_id_fields = ("author", "category")
     inlines = (PostInline, TopicTagInline)
     prepopulated_fields = {"slug": ("title",)}
-    actions = [export_topics_to_pdf]
+    actions = [export_topics_to_pdf, increment_topic_rating]
 
     list_select_related = ("category", "author")
 
@@ -127,6 +134,7 @@ class CommentAdmin(admin.ModelAdmin):
     search_fields = ("author__username", "author__email", "body", "topic__title", "post__body")
     raw_id_fields = ("author", "topic", "post")
     readonly_fields = ("created_at",)
+
 
 
 admin.site.register(Attachment)

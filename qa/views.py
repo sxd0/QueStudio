@@ -189,3 +189,9 @@ class TagCloudAPIView(APIView):
                 .values("slug", "name", "topics")
                 .order_by("-topics"))
         return Response(list(data))
+    
+class TagSlugsAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+    def get(self, request):
+        slugs = Tag.objects.values_list("slug", flat=True).order_by("slug")
+        return Response(list(slugs))
